@@ -85,11 +85,54 @@
     subdomains: 'abcd', maxZoom: 12,
   }).addTo(map);
 
-  function radiusFor(total, maxTotal) {
-    const min = 7, max = 34;
-    if (maxTotal <= 0) return min;
-    return min + Math.sqrt(total / maxTotal) * (max - min);
+  // ---------------- Escala de color por intensidad (verde -> rojo) ----------------
+  const INTENSITY_STOPS = [
+    [0.00, [53, 214, 138]],   // verde
+    [0.30, [168, 214, 74]],   // verde-lima
+    [0.55, [244, 208, 63]],   // amarillo
+    [0.78, [255, 159, 64]],   // naranja
+    [1.00, [255, 77, 94]],    // rojo
+  ];
+  function intensityColor(t) {
+    t = Math.max(0, Math.min(1, t));
+    let a = INTENSITY_STOPS[0], b = INTENSITY_STOPS[INTENSITY_STOPS.length - 1];
+    for (let i = 0; i < INTENSITY_STOPS.length - 1; i++) {
+      if (t >= INTENSITY_STOPS[i][0] && t <= INTENSITY_STOPS[i + 1][0]) { a = INTENSITY_STOPS[i]; b = INTENSITY_STOPS[i + 1]; break; }
+    }
+    const span = b[0] - a[0] || 1;
+    const f = (t - a[0]) / span;
+    const r = Math.round(a[1][0] + (b[1][0] - a[1][0]) * f);
+    const g = Math.round(a[1][1] + (b[1][1] - a[1][1]) * f);
+    const bl = Math.round(a[1][2] + (b[1][2] - a[1][2]) * f);
+    return `rgb(${r},${g},${bl})`;
   }
+
+  // ---------------- Tarjeta flotante al pasar mouse/dedo sobre un área ----------------
+  const hoverCardEl = document.getElementById('mapHoverCard');
+  function positionHoverCard(e) {
+    const oe = e.originalEvent;
+    if (!oe) return;
+    const pt = oe.touches && oe.touches[0] ? oe.touches[0] : oe;
+    let x = pt.clientX + 18, y = pt.clientY + 18;
+    const rect = hoverCardEl.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth - 10) x = pt.clientX - rect.width - 18;
+    if (y + rect.height > window.innerHeight - 10) y = pt.clientY - rect.height - 18;
+    hoverCardEl.style.left = Math.max(8, x) + 'px';
+    hoverCardEl.style.top = Math.max(8, y) + 'px';
+  }
+  function showHoverCard(title, total, cat, color, e) {
+    hoverCardEl.innerHTML = `
+      <div class="hover-card-bar" style="background:${color}"></div>
+      <div class="hover-card-body">
+        <div class="hover-card-title">${title}</div>
+        <div class="hover-card-total">${fmt(total)}<span>casos</span></div>
+        ${cat ? `<div class="hover-card-cat"><span class="dot" style="background:${cat.color};color:${cat.color}"></span>${cat.label} predominante</div>` : ''}
+        <div class="hover-card-hint">Toca para ver el detalle completo</div>
+      </div>`;
+    hoverCardEl.classList.add('show');
+    positionHoverCard(e);
+  }
+  function hideHoverCard() { hoverCardEl.classList.remove('show'); }
 
   // ---------------- Legend ----------------
   function renderLegend() {
@@ -155,12 +198,35 @@
       style: (feature) => {
         const d = DATA.departamentos.find(x => x.key === feature.properties.key);
         const total = d ? activeTotalDepto(d) : 0;
-        const cat = d ? dominantCategory(d) : CATS[0];
         const intensity = total / maxTotal;
         return {
-          color: 'rgba(255,255,255,0.18)', weight: 1,
-          fillColor: cat.color, fillOpacity: 0.08 + intensity * 0.34,
+          color: 'rgba(255,255,255,0.22)', weight: 1.2,
+          fillColor: intensityColor(intensity), fillOpacity: 0.16 + intensity * 0.5,
         };
+      },
+      onEachFeature: (feature, layer) => {
+        const d = DATA.departamentos.find(x => x.key === feature.properties.key);
+        if (!d) return;
+        layer.on({
+          mouseover: (e) => {
+            const l = e.target;
+            const el = l.getElement && l.getElement();
+            if (el) el.classList.add('geo-hover');
+            l.setStyle({ weight: 3, color: '#ffffff' });
+            l.bringToFront();
+            const total = activeTotalDepto(d);
+            const intensity = total / maxTotal;
+            showHoverCard(d.nombre, total, dominantCategory(d), intensityColor(intensity), e);
+          },
+          mousemove: (e) => positionHoverCard(e),
+          mouseout: (e) => {
+            const el = e.target.getElement && e.target.getElement();
+            if (el) el.classList.remove('geo-hover');
+            state.choroplethLayer.resetStyle(e.target);
+            hideHoverCard();
+          },
+          click: () => { hideHoverCard(); showDetail(d); },
+        });
       },
     }).addTo(map);
     state.choroplethLayer.bringToBack();
@@ -179,23 +245,6 @@
   function renderTactica() {
     clearMarkers();
     renderChoropleth();
-    const totals = DATA.departamentos.map(activeTotalDepto);
-    const maxTotal = Math.max(...totals, 1);
-
-    DATA.departamentos.forEach(d => {
-      const total = activeTotalDepto(d);
-      const cat = dominantCategory(d);
-      const r = radiusFor(total, maxTotal);
-      const icon = L.divIcon({
-        className: '',
-        html: `<div class="depto-marker" style="width:${r * 2}px;height:${r * 2}px;background:${cat.color};--marker-glow:${cat.color}55;"></div>`,
-        iconSize: [r * 2, r * 2],
-      });
-      const marker = L.marker([d.lat, d.lon], { icon }).addTo(map);
-      marker.bindTooltip(`<b>${d.nombre}</b><br>${fmt(total)} casos`, { direction: 'top', offset: [0, -r] });
-      marker.on('click', () => showDetail(d));
-      state.deptoMarkers.push(marker);
-    });
 
     if (state.mode === 'actual') {
       const muniMap = new Map();
@@ -314,19 +363,31 @@
       style: (feature) => {
         const loc = data.find(l => l.key === feature.properties.key);
         const total = loc ? localidadTotal(loc, fields) : 0;
-        const cat = loc ? localidadDominant(loc, fields) : CAT_BY_KEY[fields[0]];
         const intensity = total / maxTotal;
-        return { color: 'rgba(255,255,255,0.35)', weight: 1.2, fillColor: cat.color, fillOpacity: 0.15 + intensity * 0.55 };
+        return { color: 'rgba(255,255,255,0.35)', weight: 1.2, fillColor: intensityColor(intensity), fillOpacity: 0.18 + intensity * 0.55 };
       },
       onEachFeature: (feature, layer) => {
         const loc = data.find(l => l.key === feature.properties.key);
         if (!loc) return;
-        const total = localidadTotal(loc, fields);
-        layer.bindTooltip(`<b>${loc.nombre}</b><br>${fmt(total)} casos (${cfg.periodo})`, { sticky: true });
         layer.on({
-          mouseover: (e) => e.target.setStyle({ weight: 2.5, color: '#fff' }),
-          mouseout: (e) => state.cityLayer.resetStyle(e.target),
-          click: () => showLocalidadDetail(loc, cfg),
+          mouseover: (e) => {
+            const l = e.target;
+            const el = l.getElement && l.getElement();
+            if (el) el.classList.add('geo-hover');
+            l.setStyle({ weight: 2.5, color: '#fff' });
+            l.bringToFront();
+            const total = localidadTotal(loc, fields);
+            const intensity = total / maxTotal;
+            showHoverCard(loc.nombre, total, localidadDominant(loc, fields), intensityColor(intensity), e);
+          },
+          mousemove: (e) => positionHoverCard(e),
+          mouseout: (e) => {
+            const el = e.target.getElement && e.target.getElement();
+            if (el) el.classList.remove('geo-hover');
+            state.cityLayer.resetStyle(e.target);
+            hideHoverCard();
+          },
+          click: () => { hideHoverCard(); showLocalidadDetail(loc, cfg); },
         });
       },
     }).addTo(map);

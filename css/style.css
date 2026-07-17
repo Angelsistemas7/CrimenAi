@@ -167,6 +167,26 @@ html, body {
 .panel-head button { transition: transform 0.3s cubic-bezier(.22,1,.36,1); }
 .panel.collapsed .panel-head button { transform: rotate(-90deg); }
 
+/* ---------- Map hover widget (departamentos / comunas) ---------- */
+#mapHoverCard {
+  position: fixed; left: 0; top: 0; z-index: 1500; pointer-events: none;
+  display: flex; overflow: hidden; width: 226px;
+  background: var(--panel-bg); border: 1px solid var(--panel-border); border-radius: 18px;
+  backdrop-filter: blur(20px) saturate(1.4);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset;
+  opacity: 0; transform: scale(0.92);
+  transition: opacity 0.15s ease, transform 0.18s cubic-bezier(.22,1,.36,1);
+}
+#mapHoverCard.show { opacity: 1; transform: scale(1); }
+.hover-card-bar { width: 5px; flex-shrink: 0; }
+.hover-card-body { padding: 12px 14px; flex: 1; min-width: 0; }
+.hover-card-title { font-size: 13px; font-weight: 800; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hover-card-total { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.hover-card-total span { font-size: 10px; font-weight: 600; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.4px; margin-left: 4px; }
+.hover-card-cat { margin-top: 7px; font-size: 10.5px; color: var(--text-dim); display: flex; align-items: center; gap: 6px; }
+.hover-card-cat .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; box-shadow: 0 0 3px currentColor; }
+.hover-card-hint { margin-top: 6px; font-size: 9.5px; color: var(--text-dim); opacity: 0.7; }
+
 #legendPanel { top: 78px; left: 20px; width: 300px; max-height: 46vh; }
 #legendPanel .panel-body { max-height: calc(46vh - 60px); }
 
@@ -443,16 +463,10 @@ html, body {
 .leaflet-control-attribution a { color: var(--accent) !important; }
 .leaflet-control-zoom { display: none; }
 
-/* custom marker */
-.depto-marker {
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  color: #06090e; font-weight: 800; font-size: 10px;
-  box-shadow: 0 0 0 1.5px rgba(255,255,255,0.2), 0 2px 8px 0 var(--marker-glow, rgba(63,182,255,0.35)), 0 1px 3px rgba(0,0,0,0.3);
-  cursor: pointer;
-  transition: transform 0.25s cubic-bezier(.22,1,.36,1);
-}
-.depto-marker:hover { transform: scale(1.12); }
+/* choropleth polygons: hover highlight (reemplaza las burbujas grandes) */
+.leaflet-interactive { transition: filter 0.2s ease; cursor: pointer; }
+.geo-hover { filter: drop-shadow(0 0 10px rgba(255,255,255,0.35)); }
+
 .muni-pin {
   width: 7px; height: 7px; border-radius: 50%; background: #fff;
   box-shadow: 0 0 0 4px rgba(255,255,255,0.06), 0 1px 3px rgba(0,0,0,0.4);
