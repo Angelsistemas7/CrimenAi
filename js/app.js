@@ -134,6 +134,21 @@
   }
   function hideHoverCard() { hoverCardEl.classList.remove('show'); }
 
+  // ---------------- Hoja modal de detalle (estilo iOS) ----------------
+  function openDetailCard() {
+    const card = document.getElementById('detailCard');
+    card.classList.remove('hidden');
+    document.getElementById('sheetBackdrop').classList.add('show');
+    void card.offsetHeight; // fuerza reflow para que la transición anime desde 'hidden'
+    card.classList.add('show');
+  }
+  function closeDetailCard() {
+    const card = document.getElementById('detailCard');
+    card.classList.remove('show');
+    document.getElementById('sheetBackdrop').classList.remove('show');
+    setTimeout(() => card.classList.add('hidden'), 300);
+  }
+
   // ---------------- Legend ----------------
   function renderLegend() {
     const ul = document.getElementById('categoryList');
@@ -394,7 +409,6 @@
     map.flyToBounds(state.cityLayer.getBounds(), { duration: 1.1, padding: [40, 40] });
   }
   function showLocalidadDetail(loc, cfg) {
-    const card = document.getElementById('detailCard');
     const metrics = cfg.fields.map(k => `
       <div class="detail-metric">
         <div class="dot" style="background:${CAT_BY_KEY[k].color}"></div>
@@ -407,8 +421,7 @@
       <div class="detail-total"><span>Total ${cfg.unidad}</span><span class="val">${fmt(localidadTotal(loc, cfg.fields))}</span></div>
       <div class="fine-print" style="margin-top:10px">Fuente: ${cfg.fuente}.</div>
     `;
-    card.classList.remove('hidden');
-    requestAnimationFrame(() => card.classList.add('show'));
+    openDetailCard();
   }
 
   function enterCity(cityKey) {
@@ -430,10 +443,13 @@
   }
   document.getElementById('backToCountryBtn').addEventListener('click', exitCity);
 
-  document.querySelectorAll('.view-btn').forEach(btn => {
+  const viewBtns = Array.from(document.querySelectorAll('.view-btn'));
+  const viewIndicator = document.getElementById('viewToggleIndicator');
+  viewBtns.forEach((btn, i) => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      viewBtns.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      viewIndicator.style.transform = `translateX(${i * 100}%)`;
       state.view = btn.dataset.view;
       renderAll();
     });
@@ -663,7 +679,6 @@
 
   // ---------------- Detail card ----------------
   function showDetail(d) {
-    const card = document.getElementById('detailCard');
     const metrics = CATS.map(c => `
       <div class="detail-metric">
         <div class="dot" style="background:${c.color}"></div>
@@ -691,12 +706,10 @@
       ${drillDown}
       ${municipiosSection}
     `;
-    card.classList.remove('hidden');
-    requestAnimationFrame(() => card.classList.add('show'));
+    openDetailCard();
     const btn = document.getElementById('verLocalidadesBtn');
     if (btn) btn.addEventListener('click', () => {
-      card.classList.remove('show');
-      setTimeout(() => card.classList.add('hidden'), 200);
+      closeDetailCard();
       enterCity(btn.dataset.city);
     });
     const toggleBtn = document.getElementById('toggleMunisBtn');
@@ -716,11 +729,8 @@
       toggleBtn.textContent = toggleBtn.textContent.replace(opening ? '▾' : '▴', opening ? '▴' : '▾');
     });
   }
-  document.getElementById('detailClose').addEventListener('click', () => {
-    const card = document.getElementById('detailCard');
-    card.classList.remove('show');
-    setTimeout(() => card.classList.add('hidden'), 250);
-  });
+  document.getElementById('detailClose').addEventListener('click', closeDetailCard);
+  document.getElementById('sheetBackdrop').addEventListener('click', closeDetailCard);
 
   function flyToDepto(d) { map.flyTo([d.lat, d.lon], 7.5, { duration: 1.1 }); }
 

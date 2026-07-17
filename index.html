@@ -25,6 +25,7 @@
     </div>
 
     <div class="view-toggle" id="viewToggle">
+      <div class="view-toggle-indicator" id="viewToggleIndicator"></div>
       <button class="view-btn active" data-view="tactica">
         <span class="radio"></span> Vista Táctica
       </button>
@@ -114,7 +115,9 @@
     </div>
   </aside>
 
+  <div id="sheetBackdrop"></div>
   <div id="detailCard" class="panel hidden">
+    <div class="sheet-handle"></div>
     <button id="detailClose">&times;</button>
     <div id="detailContent"></div>
   </div>
