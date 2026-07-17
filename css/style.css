@@ -159,8 +159,13 @@ html, body {
   background: rgba(255,255,255,0.06); border: none; color: var(--text);
   width: 20px; height: 20px; border-radius: 5px; cursor: pointer; font-size: 13px; line-height: 1;
 }
-.panel-body { padding: 14px 16px; overflow-y: auto; }
-.panel.collapsed .panel-body { display: none; }
+.panel-body {
+  padding: 14px 16px; overflow-y: auto;
+  transition: max-height 0.35s cubic-bezier(.22,1,.36,1), opacity 0.25s ease, padding 0.3s ease;
+}
+.panel.collapsed .panel-body { opacity: 0; padding-top: 0; padding-bottom: 0; overflow: hidden; }
+.panel-head button { transition: transform 0.3s cubic-bezier(.22,1,.36,1); }
+.panel.collapsed .panel-head button { transform: rotate(-90deg); }
 
 #legendPanel { top: 78px; left: 20px; width: 300px; max-height: 46vh; }
 #legendPanel .panel-body { max-height: calc(46vh - 60px); }
