@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CrimenAI · Colombia — Espectro Táctico</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<div id="map"></div>
+
+<button id="uiToggleBtn" title="Ocultar interfaz">Ocultar interfaz</button>
+
+<div id="app-overlay">
+
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-dot"></span>
+      <div>
+        <div class="brand-title">CRIMEN<span>AI</span> · COLOMBIA</div>
+        <div class="brand-sub">Vigilancia Táctica Nacional</div>
+      </div>
+    </div>
+
+    <div class="view-toggle" id="viewToggle">
+      <button class="view-btn active" data-view="tactica">
+        <span class="radio"></span> Vista Táctica
+      </button>
+      <button class="view-btn" data-view="calor">
+        <span class="radio"></span> Mapa de Calor
+      </button>
+    </div>
+
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Buscar departamento o ciudad…" autocomplete="off" />
+      <div id="searchResults"></div>
+    </div>
+
+    <button id="backToCountryBtn" class="back-pill hidden">← Volver a Colombia</button>
+  </header>
+
+  <aside id="legendPanel" class="panel">
+    <div class="panel-head" id="legendHead">
+      <span>ESPECTRO TÁCTICO</span>
+      <button id="legendCollapse" title="Colapsar">–</button>
+    </div>
+    <div class="panel-body" id="legendBody">
+      <ul id="categoryList"></ul>
+      <div class="metric-note">
+        <strong>MÉTRICA:</strong> la intensidad representa el volumen acumulado de delitos por departamento
+        (Total: <span id="totalNacional">0</span> casos). Fuente: Policía Nacional (SIEDCO) vía datos.gov.co.
+        <span id="periodoLabel">Periodo: enero 2025 – mayo 2026*.</span>
+        <div class="fine-print">*mayo 2026 con reporte parcial (corte de publicación SIEDCO). Delitos Informáticos: Fiscalía General (SPOA).</div>
+      </div>
+    </div>
+  </aside>
+
+  <aside id="newsPanel" class="panel">
+    <div class="panel-head" id="newsHead">
+      <span>BOLETÍN · PRENSA</span>
+      <button id="newsCollapse" title="Colapsar">–</button>
+    </div>
+    <div class="panel-body" id="newsBody">
+      <div id="newsList"></div>
+      <div class="fine-print news-fine-print">Titulares reales recopilados de medios colombianos, con enlace a la fuente original.</div>
+    </div>
+  </aside>
+
+  <aside id="statsPanel" class="panel">
+    <div class="panel-head">
+      <span>PANEL ANALÍTICO</span>
+      <button id="statsCollapse" title="Colapsar">–</button>
+    </div>
+    <div class="panel-body" id="statsBody">
+      <div class="stat-row">
+        <div class="stat-tile">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Casos totales</div>
+        </div>
+        <div class="stat-tile">
+          <div class="stat-value" id="statDeptos">33</div>
+          <div class="stat-label">Departamentos</div>
+        </div>
+      </div>
+
+      <div class="section-title-row">
+        <div class="section-title">TENDENCIA NACIONAL</div>
+        <div class="granularity-toggle" id="granularityToggle">
+          <button class="gran-btn active" data-gran="mensual">24 meses</button>
+          <button class="gran-btn" data-gran="anual">Histórico</button>
+        </div>
+      </div>
+      <div class="trend-tabs" id="trendTabs"></div>
+      <div id="trendChart"></div>
+
+      <div class="section-title">TOP DEPARTAMENTOS</div>
+      <div id="rankingList"></div>
+
+      <div class="section-title" id="muniTitle">TOP MUNICIPIOS · HOMICIDIOS</div>
+      <div class="muni-tabs" id="muniTabs"></div>
+      <div id="muniList"></div>
+
+      <div class="section-title">DELITOS INFORMÁTICOS <span class="tag-fuente">Fiscalía · SPOA</span></div>
+      <div id="cyberChart"></div>
+      <div id="cyberTop"></div>
+
+      <div class="section-title-row">
+        <div class="section-title">ANALÍTICA DEMOGRÁFICA</div>
+        <select id="analiticaSelect" class="analitica-select"></select>
+      </div>
+      <div id="analiticaList"></div>
+    </div>
+  </aside>
+
+  <div id="detailCard" class="panel hidden">
+    <button id="detailClose">&times;</button>
+    <div id="detailContent"></div>
+  </div>
+
+  <div id="timeBar">
+    <button id="liveBtn" class="live-pill active" title="Volver al periodo actual">
+      <span class="live-dot"></span> EN VIVO
+    </button>
+    <button id="playBtn" title="Reproducir histórico 2003–2026">▶</button>
+    <div class="time-slider-wrap">
+      <svg id="timeSparkline" viewBox="0 0 1000 40" preserveAspectRatio="none"></svg>
+      <input type="range" id="yearSlider" min="2003" max="2026" value="2026" step="1" />
+    </div>
+    <div id="yearLabel">2025–2026</div>
+  </div>
+
+  <footer id="bottombar">
+    <span id="clock"></span>
+    <span class="sep">·</span>
+    <span>646.014 → <b id="footTotal">0</b> casos indexados</span>
+    <span class="sep">·</span>
+    <span>Fuente oficial: SIEDCO / Policía Nacional de Colombia · Fiscalía General (SPOA)</span>
+  </footer>
+
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js" crossorigin="anonymous"></script>
+<script src="js/data.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/bogota.js"></script>
+<script src="js/ciudades.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
