@@ -36,9 +36,11 @@
     muniMarkers: [],
     heatLayer: null,
     choroplethLayer: null,
+    municipiosLayer: null,
     cityMode: null,
     cityLayer: null,
   };
+  const DEPT_BY_KEY = Object.fromEntries(DATA.departamentos.map(d => [d.key, d]));
 
   const fmt = n => Math.round(n).toLocaleString('es-CO');
 
@@ -133,6 +135,147 @@
     positionHoverCard(e);
   }
   function hideHoverCard() { hoverCardEl.classList.remove('show'); }
+
+  // ---------------- Municipios nacional (geometría real + datos SIEDCO) ----------------
+  const DEPT_TOPO_MAP = {
+    BOGOTA: 'SANTAFE DE BOGOTA D.C', ANTIOQUIA: 'ANTIOQUIA', VALLE: 'VALLE DEL CAUCA', CUNDINAMARCA: 'CUNDINAMARCA',
+    ATLANTICO: 'ATLANTICO', SANTANDER: 'SANTANDER', BOLIVAR: 'BOLIVAR', NARINO: 'NARIÑO', TOLIMA: 'TOLIMA', META: 'META',
+    HUILA: 'HUILA', CAUCA: 'CAUCA', BOYACA: 'BOYACA', 'NORTE DE SANTANDER': 'NORTE DE SANTANDER', CESAR: 'CESAR',
+    RISARALDA: 'RISARALDA', MAGDALENA: 'MAGDALENA', CALDAS: 'CALDAS', CORDOBA: 'CORDOBA', QUINDIO: 'QUINDIO',
+    CASANARE: 'CASANARE', SUCRE: 'SUCRE', GUAJIRA: 'LA GUAJIRA', CAQUETA: 'CAQUETA', PUTUMAYO: 'PUTUMAYO', CHOCO: 'CHOCO',
+    ARAUCA: 'ARAUCA', GUAVIARE: 'GUAVIARE', 'SAN ANDRES': 'ARCHIPIELAGO DE SAN ANDRES PROVIDENCIA Y SANTA CATALINA',
+    AMAZONAS: 'AMAZONAS', VICHADA: 'VICHADA', VAUPES: 'VAUPES', GUAINIA: 'GUAINIA',
+  };
+  const REVERSE_DEPT_TOPO_MAP = Object.fromEntries(Object.entries(DEPT_TOPO_MAP).map(([k, v]) => [v, k]));
+  const MUNI_FIELDS = ['homicidios', 'extorsion', 'hurto'];
+
+  function normText(s) {
+    return s.replace(/¥/g, 'Ñ').normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  function titleCase(s) {
+    return s.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, c => c.toUpperCase());
+  }
+
+  const MUNICIPIOS_GEOJSON = topojson.feature(MUNICIPIOS_TOPOJSON, MUNICIPIOS_TOPOJSON.objects.mpios);
+  (function joinMunicipiosData() {
+    const byDeptKey = {};
+    MUNICIPIOS_GEOJSON.features.forEach(f => {
+      const deptKey = REVERSE_DEPT_TOPO_MAP[f.properties.dpt] || null;
+      f.properties.deptKey = deptKey;
+      f.properties.nombre = deptKey === 'BOGOTA' ? DEPT_BY_KEY.BOGOTA.nombre : titleCase(f.properties.name);
+      f.properties.data = null;
+      if (deptKey) (byDeptKey[deptKey] = byDeptKey[deptKey] || []).push(f);
+    });
+    Object.entries(DATA.municipiosDetalle || {}).forEach(([deptKey, munis]) => {
+      const candidates = byDeptKey[deptKey] || [];
+      if (deptKey === 'BOGOTA' && candidates.length === 1) {
+        if (munis[0]) candidates[0].properties.data = munis[0];
+        return;
+      }
+      const cand = candidates.map(f => {
+        const n = normText(f.properties.name);
+        return { f, n, ns: n.replace(/ /g, '') };
+      });
+      munis.forEach(m => {
+        const n = normText(m.municipio);
+        const ns = n.replace(/ /g, '');
+        const hit = cand.find(c => c.n === n) || cand.find(c => n.includes(c.n) || c.n.includes(n)) || cand.find(c => c.ns === ns);
+        if (hit) hit.f.properties.data = m;
+      });
+    });
+  })();
+
+  function municipioTotal(props) {
+    if (!props.data) return 0;
+    let t = 0;
+    MUNI_FIELDS.forEach(k => { if (state.active.has(k)) t += props.data[k] || 0; });
+    return t;
+  }
+  function municipioDominant(props) {
+    if (!props.data) return null;
+    let best = null, bestVal = -1;
+    MUNI_FIELDS.forEach(k => {
+      if (!state.active.has(k)) return;
+      const v = props.data[k] || 0;
+      if (v > bestVal) { bestVal = v; best = CAT_BY_KEY[k]; }
+    });
+    return best;
+  }
+  function clearMunicipiosNacional() {
+    if (state.municipiosLayer) { map.removeLayer(state.municipiosLayer); state.municipiosLayer = null; }
+  }
+  function renderMunicipiosNacional() {
+    clearChoropleth();
+    clearMunicipiosNacional();
+    const maxTotal = Math.max(...MUNICIPIOS_GEOJSON.features.map(f => municipioTotal(f.properties)), 1);
+    state.municipiosLayer = L.geoJSON(MUNICIPIOS_GEOJSON, {
+      renderer: L.canvas({ padding: 0.5 }),
+      style: (feature) => {
+        if (!feature.properties.data) {
+          return { color: 'rgba(255,255,255,0.10)', weight: 0.5, fillColor: '#3a4150', fillOpacity: 0.22 };
+        }
+        const total = municipioTotal(feature.properties);
+        const intensity = total / maxTotal;
+        return { color: 'rgba(255,255,255,0.16)', weight: 0.6, fillColor: intensityColor(intensity), fillOpacity: 0.24 + intensity * 0.55 };
+      },
+      onEachFeature: (feature, layer) => {
+        layer.on({
+          mouseover: (e) => {
+            const l = e.target;
+            l.setStyle({ weight: 2, color: '#ffffff' });
+            l.bringToFront();
+            const dept = DEPT_BY_KEY[feature.properties.deptKey];
+            const title = dept ? `${feature.properties.nombre} · ${dept.nombre}` : feature.properties.nombre;
+            if (feature.properties.data) {
+              const total = municipioTotal(feature.properties);
+              const intensity = total / maxTotal;
+              showHoverCard(title, total, municipioDominant(feature.properties), intensityColor(intensity), e);
+            } else {
+              showHoverCard(title, 0, null, 'rgba(154,164,178,0.7)', e);
+            }
+          },
+          mousemove: (e) => positionHoverCard(e),
+          mouseout: (e) => {
+            state.municipiosLayer.resetStyle(e.target);
+            hideHoverCard();
+          },
+          click: (e) => {
+            hideHoverCard();
+            map.flyToBounds(e.target.getBounds(), { duration: 0.85, padding: [70, 70] });
+            setTimeout(() => showMunicipioDetail(feature.properties), 320);
+          },
+        });
+      },
+    }).addTo(map);
+  }
+  function showMunicipioDetail(props) {
+    const dept = DEPT_BY_KEY[props.deptKey];
+    const data = props.data;
+    const total = municipioTotal(props);
+    const metrics = data ? MUNI_FIELDS.map(k => `
+      <div class="detail-metric">
+        <div class="dot" style="background:${CAT_BY_KEY[k].color}"></div>
+        <div class="info"><div class="val">${fmt(data[k] || 0)}</div><div class="lbl">${CAT_BY_KEY[k].label}</div></div>
+      </div>`).join('') : '';
+    const cityKey = Object.keys(CITY_CONFIGS).find(k => CITY_CONFIGS[k].deptoKey === props.deptKey && normText(CITY_CONFIGS[k].nombre).includes(normText(props.nombre)));
+    const drillDown = cityKey
+      ? `<button id="verLocalidadesBtnMuni" class="drill-btn" data-city="${cityKey}">Ver ${CITY_CONFIGS[cityKey].data().length} ${CITY_CONFIGS[cityKey].unidad === 'comuna' ? 'comunas' : 'localidades'} de ${CITY_CONFIGS[cityKey].nombre} →</button>` : '';
+    document.getElementById('detailContent').innerHTML = `
+      <div class="detail-title">${props.nombre}</div>
+      <div class="detail-sub">${dept ? dept.nombre : ''} · Enero 2025 – Mayo 2026</div>
+      ${data
+        ? `<div class="detail-grid">${metrics}</div><div class="detail-total"><span>Total municipal</span><span class="val">${fmt(total)}</span></div>`
+        : `<div class="metric-note">Sin datos registrados para este municipio en el periodo actual (SIEDCO no reporta cifras separadas para esta zona).</div>`}
+      ${drillDown}
+    `;
+    openDetailCard();
+    const btn = document.getElementById('verLocalidadesBtnMuni');
+    if (btn) btn.addEventListener('click', () => {
+      closeDetailCard();
+      enterCity(btn.dataset.city);
+    });
+  }
 
   // ---------------- Hoja modal de detalle (estilo iOS) ----------------
   function openDetailCard() {
@@ -255,38 +398,20 @@
       return n.includes(target.split(' ')[0]) || target.includes(n.split(' ')[0]);
     });
   }
-  function hashStr(s) { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); }
-
   function renderTactica() {
     clearMarkers();
-    renderChoropleth();
-
     if (state.mode === 'actual') {
-      const muniMap = new Map();
-      ['homicidios', 'extorsion', 'hurto', 'amenazas', 'lesiones'].forEach(serie => {
-        (DATA.topMunicipios[serie] || []).forEach(m => {
-          const k = m.municipio + '|' + m.departamento;
-          if (!muniMap.has(k)) muniMap.set(k, m);
-        });
-      });
-      muniMap.forEach(m => {
-        const base = findDeptoFor(m.departamento);
-        if (!base) return;
-        const seed = hashStr(m.municipio);
-        const jitter = 0.35;
-        const lat = base.lat + (((seed % 100) / 100) - 0.5) * jitter;
-        const lon = base.lon + ((((seed >> 3) % 100) / 100) - 0.5) * jitter;
-        const icon = L.divIcon({ className: '', html: '<div class="muni-pin"></div>', iconSize: [8, 8] });
-        const marker = L.marker([lat, lon], { icon }).addTo(map);
-        marker.bindTooltip(`<b>${m.municipio}</b> · ${m.departamento}<br>${fmt(m.total)} casos`, { direction: 'top' });
-        state.muniMarkers.push(marker);
-      });
+      renderMunicipiosNacional();
+    } else {
+      clearMunicipiosNacional();
+      renderChoropleth();
     }
   }
 
   function renderCalor() {
     clearMarkers();
     clearChoropleth();
+    clearMunicipiosNacional();
     if (state.heatLayer) { map.removeLayer(state.heatLayer); state.heatLayer = null; }
     const points = [];
     const totals = DATA.departamentos.map(activeTotalDepto);
@@ -368,6 +493,7 @@
   function renderCity() {
     clearMarkers();
     clearChoropleth();
+    clearMunicipiosNacional();
     if (state.heatLayer) { map.removeLayer(state.heatLayer); state.heatLayer = null; }
     clearCity();
     const cfg = CITY_CONFIGS[state.cityMode];

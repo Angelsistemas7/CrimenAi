@@ -13,7 +13,8 @@ Abrir `index.html` vía el server (no funciona bien con file:// directo por los 
 ## Estructura
 - `index.html` / `css/style.css` / `js/app.js` — la app.
 - `js/data.js` — TODOS los datos nacionales (10 categorías + feminicidios overlay), generado por `data/merge.js`.
-- `js/geo.js` — polígonos de los 33 departamentos.
+- `js/geo.js` — polígonos de los 33 departamentos (se usa solo en modo histórico).
+- `js/municipios_geo.js` — polígonos reales (TopoJSON) de los 1.122 municipios de Colombia. Se decodifica en el navegador con `topojson-client` (CDN) y se cruza en runtime con `municipiosDetalle` por nombre normalizado (~99.3% de coincidencia). Fuente: gist de John Guerra (`colombia-municipios.json`, basado en mapa-colombia-js).
 - `js/bogota.js`, `js/ciudades.js` — polígonos + datos de localidades/comunas (Bogotá, Medellín, Cali, Bucaramanga).
 - `data/merge.js` — script que fusiona los JSON crudos de datos.gov.co en `colombia_crimen.json` → se copia a `js/data.js`.
   - **Los JSON crudos de entrada ya NO existen** (se borraron para no ocupar espacio). Si necesitas volver a correr `merge.js`, hay que re-descargar todo desde las APIs (queries SoQL documentadas en el historial de chat de creación del proyecto). El script aborta solo si detecta que faltan (total sospechosamente bajo) para no sobreescribir el bueno por error.
@@ -23,7 +24,8 @@ Abrir `index.html` vía el server (no funciona bien con file:// directo por los 
 Homicidios, Secuestros, Extorsión, Amenazas, Delitos Sexuales, Lesiones Personales, Hurto (compuesto: personas+residencias+vehículos+otros), Violencia Intrafamiliar, Terrorismo, Operativos Antinarcóticos, Feminicidios (subconjunto de Homicidios, no se suma al total), Delitos Informáticos (Fiscalía/SPOA, separado).
 
 ## Funcionalidades ya construidas
-- Vista Táctica (pines + choropleth por departamento) y Mapa de Calor.
+- Vista Táctica: en modo "actual" muestra los **1.122 municipios reales** (polígono real, no punto) coloreados por intensidad verde→rojo; hover resalta el municipio y muestra tarjeta flotante; click hace zoom animado y abre la ficha (o el drill-down de comunas si es Bogotá/Medellín/Cali/Bucaramanga). Los municipios sin datos SIEDCO se muestran en gris (no se ocultan). En modo histórico se usa el choropleth por departamento (no hay serie histórica por municipio).
+- Mapa de Calor (por departamento, todos los modos).
 - Barra histórica 2003–2026 con reproducción automática (▶) y modo "en vivo" (periodo actual ene 2025–may 2026).
 - Drill-down por comuna/localidad en **Bogotá** (20), **Medellín** (16), **Cali** (22), **Bucaramanga** (17).
 - Los 33 departamentos tienen lista completa de sus municipios (botón "Ver los N municipios") — 1.078 municipios en total.
@@ -37,8 +39,12 @@ Cúcuta (solo mapa de 2017 inaccesible), Pereira, Ibagué, Villavicencio, Monter
 ## Próximos pasos posibles (no hechos aún)
 1. Boletín de noticias con refresco automático (RSS + `/schedule`), en vez de la lista curada manual actual.
 2. Revisar si aparecen datasets nuevos de comuna para las ciudades listadas arriba como "sin datos".
-3. Optimizar más el tamaño de `js/data.js` (190KB) si se vuelve un problema — hoy el proyecto pesa 765KB total, no es urgente.
+3. Optimizar tamaño si se vuelve un problema — el proyecto pesa ~1.7MB total (creció por `js/municipios_geo.js`, ~520KB, al añadir polígonos municipales), no es urgente.
 4. Posible export/PDF del panel analítico.
+5. Resolver los ~8 municipios sin polígono en el TopoJSON actual (Norosí, Guachené, Istmina, Tuchín, San José de Uré, Ariguaní, Cerro de San Antonio, Santa Cruz de Mompox) si aparece un dataset más completo/reciente.
+
+## Lanzador de escritorio
+`C:\Users\angel\Desktop\CrimenAI.vbs` — doble clic levanta el server local (si no está corriendo) y abre el dashboard en el navegador.
 
 ## Fuentes principales (para referencia rápida)
 - datos.gov.co (Socrata) — Policía Nacional/SIEDCO: homicidio `m8fd-ahd9`, secuestro `d7zw-hpf4`, extorsión `q2ib-t9am`, hurto personas `4rxi-8m8d`, hurto residencias `7mn7-vzqp`, hurto vehículos `9vha-vh9n`, hurto abigeato/financiero/pirateria `d4fr-sbn2`, sexuales `fpe5-yrmw`, violencia intrafamiliar `vuyt-mqpw`, amenazas `meew-mguv`, lesiones `72sg-cybi`, terrorismo `37p5-impc`, estupefacientes `kk69-w2jj`.
