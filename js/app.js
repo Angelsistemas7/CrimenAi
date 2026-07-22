@@ -248,6 +248,12 @@
           },
           click: (e) => {
             hideHoverCard();
+            const cityKey = Object.keys(CITY_CONFIGS).find(k => CITY_CONFIGS[k].deptoKey === feature.properties.deptKey && normText(CITY_CONFIGS[k].nombre).includes(normText(feature.properties.nombre)));
+            if (cityKey) {
+              map.flyToBounds(e.target.getBounds(), { duration: 0.85, padding: [70, 70] });
+              setTimeout(() => enterCity(cityKey), 320);
+              return;
+            }
             map.flyToBounds(e.target.getBounds(), { duration: 0.85, padding: [70, 70] });
             setTimeout(() => showMunicipioDetail(feature.properties), 320);
           },
@@ -923,6 +929,12 @@
   yearSlider.max = YEAR_MAX;
   yearSlider.value = YEAR_MAX;
 
+  function updateSliderFill() {
+    const pct = ((yearSlider.value - yearSlider.min) / (yearSlider.max - yearSlider.min)) * 100;
+    yearSlider.style.setProperty('--pct', pct + '%');
+  }
+  updateSliderFill();
+
   function renderSparkline() {
     const w = 1000, h = 40;
     const years = [];
@@ -951,11 +963,13 @@
 
   yearSlider.addEventListener('input', () => {
     stopPlaying();
+    updateSliderFill();
     setMode('historico', parseInt(yearSlider.value, 10));
   });
   liveBtn.addEventListener('click', () => {
     stopPlaying();
     yearSlider.value = YEAR_MAX;
+    updateSliderFill();
     setMode('actual');
   });
 
@@ -969,11 +983,13 @@
     let y = state.mode === 'actual' ? YEAR_MIN : state.selectedYear;
     if (y >= YEAR_MAX) y = YEAR_MIN;
     yearSlider.value = y;
+    updateSliderFill();
     setMode('historico', y);
     state.playing = setInterval(() => {
       y++;
       if (y > YEAR_MAX) { stopPlaying(); return; }
       yearSlider.value = y;
+      updateSliderFill();
       setMode('historico', y);
     }, 700);
   });

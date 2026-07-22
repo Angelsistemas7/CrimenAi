@@ -469,19 +469,25 @@ html, body {
 #yearSlider {
   position: relative; width: 100%; height: 34px; -webkit-appearance: none; appearance: none;
   background: transparent; cursor: pointer; margin: 0;
+  --pct: 100%;
 }
-#yearSlider::-webkit-slider-runnable-track { height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+#yearSlider::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 3px;
+  background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct), rgba(255,255,255,0.15) var(--pct), rgba(255,255,255,0.15) 100%);
+}
 #yearSlider::-webkit-slider-thumb {
-  -webkit-appearance: none; margin-top: -6.5px;
-  width: 16px; height: 16px; border-radius: 50%;
-  background: var(--accent); box-shadow: 0 1px 4px rgba(0,0,0,0.4), 0 0 0 3px rgba(63,182,255,0.15);
-  border: 2px solid #06090e; cursor: pointer; transition: transform 0.15s ease;
+  -webkit-appearance: none; margin-top: -8px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #ffffff; box-shadow: 0 2px 6px rgba(0,0,0,0.45), 0 0 0 1px rgba(0,0,0,0.06);
+  border: none; cursor: pointer; transition: transform 0.15s ease;
 }
-#yearSlider::-webkit-slider-thumb:active { transform: scale(1.15); }
-#yearSlider::-moz-range-track { height: 3px; background: rgba(255,255,255,0.15); border-radius: 2px; }
+#yearSlider::-webkit-slider-thumb:hover { transform: scale(1.08); }
+#yearSlider::-webkit-slider-thumb:active { transform: scale(1.22); }
+#yearSlider::-moz-range-track { height: 4px; border-radius: 3px; background: rgba(255,255,255,0.15); }
+#yearSlider::-moz-range-progress { height: 4px; border-radius: 3px; background: var(--accent); }
 #yearSlider::-moz-range-thumb {
-  width: 14px; height: 14px; border-radius: 50%; background: var(--accent);
-  box-shadow: 0 1px 4px rgba(0,0,0,0.4); border: 2px solid #06090e; cursor: pointer;
+  width: 18px; height: 18px; border-radius: 50%; background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.45); border: none; cursor: pointer;
 }
 #yearLabel {
   font-size: 15px; font-weight: 800; color: var(--text); min-width: 88px; text-align: right;
