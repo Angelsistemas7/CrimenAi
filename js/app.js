@@ -136,29 +136,32 @@
   }
   function hideHoverCard() { hoverCardEl.classList.remove('show'); }
 
-  // ---------------- Municipios nacional (geometría real + datos SIEDCO) ----------------
+  // ---------------- Municipios nacional (geometría real DANE-MGN + datos SIEDCO) ----------------
   const DEPT_TOPO_MAP = {
-    BOGOTA: 'SANTAFE DE BOGOTA D.C', ANTIOQUIA: 'ANTIOQUIA', VALLE: 'VALLE DEL CAUCA', CUNDINAMARCA: 'CUNDINAMARCA',
-    ATLANTICO: 'ATLANTICO', SANTANDER: 'SANTANDER', BOLIVAR: 'BOLIVAR', NARINO: 'NARIÑO', TOLIMA: 'TOLIMA', META: 'META',
-    HUILA: 'HUILA', CAUCA: 'CAUCA', BOYACA: 'BOYACA', 'NORTE DE SANTANDER': 'NORTE DE SANTANDER', CESAR: 'CESAR',
-    RISARALDA: 'RISARALDA', MAGDALENA: 'MAGDALENA', CALDAS: 'CALDAS', CORDOBA: 'CORDOBA', QUINDIO: 'QUINDIO',
-    CASANARE: 'CASANARE', SUCRE: 'SUCRE', GUAJIRA: 'LA GUAJIRA', CAQUETA: 'CAQUETA', PUTUMAYO: 'PUTUMAYO', CHOCO: 'CHOCO',
-    ARAUCA: 'ARAUCA', GUAVIARE: 'GUAVIARE', 'SAN ANDRES': 'ARCHIPIELAGO DE SAN ANDRES PROVIDENCIA Y SANTA CATALINA',
-    AMAZONAS: 'AMAZONAS', VICHADA: 'VICHADA', VAUPES: 'VAUPES', GUAINIA: 'GUAINIA',
+    BOGOTA: 'BOGOTÁ, D.C.', ANTIOQUIA: 'ANTIOQUIA', VALLE: 'VALLE DEL CAUCA', CUNDINAMARCA: 'CUNDINAMARCA',
+    ATLANTICO: 'ATLÁNTICO', SANTANDER: 'SANTANDER', BOLIVAR: 'BOLÍVAR', NARINO: 'NARIÑO', TOLIMA: 'TOLIMA', META: 'META',
+    HUILA: 'HUILA', CAUCA: 'CAUCA', BOYACA: 'BOYACÁ', 'NORTE DE SANTANDER': 'NORTE DE SANTANDER', CESAR: 'CESAR',
+    RISARALDA: 'RISARALDA', MAGDALENA: 'MAGDALENA', CALDAS: 'CALDAS', CORDOBA: 'CÓRDOBA', QUINDIO: 'QUINDIO',
+    CASANARE: 'CASANARE', SUCRE: 'SUCRE', GUAJIRA: 'LA GUAJIRA', CAQUETA: 'CAQUETÁ', PUTUMAYO: 'PUTUMAYO', CHOCO: 'CHOCÓ',
+    ARAUCA: 'ARAUCA', GUAVIARE: 'GUAVIARE', 'SAN ANDRES': 'ARCHIPIÉLAGO DE SAN ANDRÉS, PROVIDENCIA Y SANTA CATALINA',
+    AMAZONAS: 'AMAZONAS', VICHADA: 'VICHADA', VAUPES: 'VAUPÉS', GUAINIA: 'GUAINÍA',
   };
   const REVERSE_DEPT_TOPO_MAP = Object.fromEntries(Object.entries(DEPT_TOPO_MAP).map(([k, v]) => [v, k]));
   const MUNI_FIELDS = ['homicidios', 'extorsion', 'hurto'];
+  const MUNI_NAME_ALIASES = { 'SANTA CRUZ DE MOMPOX': 'MOMPOS' };
 
   function normText(s) {
-    return s.replace(/¥/g, 'Ñ').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    let n = s.replace(/¥/g, 'Ñ').normalize('NFD').replace(/[̀-ͯ]/g, '')
       .toUpperCase().replace(/[^A-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+    return MUNI_NAME_ALIASES[n] || n;
   }
   function titleCase(s) {
     return s.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, c => c.toUpperCase());
   }
 
-  const MUNICIPIOS_GEOJSON = topojson.feature(MUNICIPIOS_TOPOJSON, MUNICIPIOS_TOPOJSON.objects.mpios);
-  (function joinMunicipiosData() {
+  let MUNICIPIOS_GEOJSON = null;
+  try {
+    MUNICIPIOS_GEOJSON = topojson.feature(MUNICIPIOS_TOPOJSON, MUNICIPIOS_TOPOJSON.objects.mpios);
     const byDeptKey = {};
     MUNICIPIOS_GEOJSON.features.forEach(f => {
       const deptKey = REVERSE_DEPT_TOPO_MAP[f.properties.dpt] || null;
@@ -184,7 +187,10 @@
         if (hit) hit.f.properties.data = m;
       });
     });
-  })();
+  } catch (err) {
+    console.error('No se pudo cargar la geometría de municipios, se usará el mapa por departamento.', err);
+    MUNICIPIOS_GEOJSON = null;
+  }
 
   function municipioTotal(props) {
     if (!props.data) return 0;
@@ -400,7 +406,7 @@
   }
   function renderTactica() {
     clearMarkers();
-    if (state.mode === 'actual') {
+    if (state.mode === 'actual' && MUNICIPIOS_GEOJSON) {
       renderMunicipiosNacional();
     } else {
       clearMunicipiosNacional();

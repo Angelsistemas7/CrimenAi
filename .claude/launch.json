@@ -4,7 +4,7 @@
     {
       "name": "crimenai-server",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "8541"],
+      "runtimeArgs": ["serve.py"],
       "port": 8541
     }
   ]
