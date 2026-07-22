@@ -290,12 +290,14 @@ html, body {
 }
 .gran-btn.active { background: rgba(63,182,255,0.14); color: var(--accent); border-color: rgba(63,182,255,0.3); }
 
-#cyberChart { width: 100%; height: 60px; margin-top: 4px; }
-#cyberChart svg { width: 100%; height: 100%; overflow: visible; }
-#cyberTop { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+#cyberChart, #spoaChart, #ubpdChart { width: 100%; height: 60px; margin-top: 4px; }
+#cyberChart svg, #spoaChart svg, #ubpdChart svg { width: 100%; height: 100%; overflow: visible; }
+#cyberTop, #spoaTop, #ubpdTop { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
 .cyber-row { display: flex; justify-content: space-between; gap: 8px; font-size: 10.5px; }
 .cyber-row .cyber-name { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cyber-row .cyber-val { color: var(--green); font-weight: 700; flex-shrink: 0; }
+.cyber-row .cyber-val.-orange { color: var(--orange); }
+.cyber-row .cyber-val.-purple { color: var(--purple); }
 
 .analitica-select {
   background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); color: var(--text);

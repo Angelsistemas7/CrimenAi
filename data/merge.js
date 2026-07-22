@@ -263,6 +263,48 @@ const delitosInformaticos = {
   porTipo: tryLoad('tipos_informaticos.json').map(r => ({ delito: r.delito, total: parseFloat(r.total) || 0 })),
 };
 
+// -------- Denuncias Fiscalía (SPOA): Conteo de Procesos V3 (dbdv-iihs) y Conteo de Víctimas V3 (hr73-zqjf) --------
+// Agregados vía SoQL ($select + count(*) + $group) directamente sobre datos.gov.co, NO se descargaron los registros crudos
+// (el dataset de procesos supera 23 millones de filas). Departamento = lugar de los hechos (departamento_hecho / departamento_hecho_origen).
+function porDeptoDesdeConteo(file) {
+  const byDepto = {};
+  tryLoad(file + '.json').forEach(r => {
+    const key = normalizeDeptoName(r.departamento);
+    if (!byKey[key]) return; // descarta "Sin Información" y similares
+    byDepto[key] = (byDepto[key] || 0) + (parseFloat(r.total) || 0);
+  });
+  return Object.keys(byDepto)
+    .map(key => ({ departamento: byKey[key].nombre, total: byDepto[key] }))
+    .sort((a, b) => b.total - a.total);
+}
+const denunciasFiscalia = {
+  procesos: {
+    porAnio: tryLoad('hist_nacional_spoa_procesos.json').map(r => ({ anio: String(r.anio), total: parseFloat(r.total) || 0 })),
+    porDepartamento: porDeptoDesdeConteo('depto_spoa_procesos'),
+    porTipo: tryLoad('tipos_spoa_procesos.json').map(r => ({ delito: r.delito, total: parseFloat(r.total) || 0 })),
+  },
+  victimas: {
+    porAnio: tryLoad('hist_nacional_spoa_victimas.json').map(r => ({ anio: String(r.anio), total: parseFloat(r.total) || 0 })),
+    porDepartamento: porDeptoDesdeConteo('depto_spoa_victimas'),
+  },
+};
+
+// -------- Personas desaparecidas: Instituto Nacional de Medicina Legal y Ciencias Forenses, registro SIRDEC --------
+// NOTA: la UBPD (Unidad de Búsqueda de Personas dadas por Desaparecidas) no publica su "Universo de personas dadas por
+// desaparecidas" como dataset descargable ni API (solo un visor interactivo tipo Power BI en datos.unidadbusqueda.gov.co).
+// Como sustituto verificable y con la misma orden de magnitud, se usa el registro nacional de desapariciones de Medicina
+// Legal (SIRDEC, dataset "Desaparecidos en Colombia - Histórico", datos.gov.co id 8hqm-7fdt), filtrado a estado
+// "Desaparecido" (personas aún no localizadas). Se cita además la cifra oficial UBPD (universo del conflicto armado) en el
+// texto del panel a modo de referencia cruzada.
+const desaparecidosUBPD = {
+  fuenteReal: 'Instituto Nacional de Medicina Legal y Ciencias Forenses (SIRDEC) — no fue posible obtener el dataset descargable de la UBPD, que solo expone un visor interactivo',
+  porAnio: tryLoad('hist_nacional_desaparecidos.json').map(r => ({ anio: String(r.anio), total: parseFloat(r.total) || 0 })),
+  porDepartamento: porDeptoDesdeConteo('depto_desaparecidos'),
+  porSexo: tryLoad('desaparecidos_sexo.json').map(r => ({ sexo: r.sexo, total: parseFloat(r.total) || 0 })),
+  totalRegistroActual: 129895,
+  cifraOficialUBPD: { total: 136010, fecha: '2026-07-08', fuente: 'UBPD, boletín de actualización del universo de personas dadas por desaparecidas en razón del conflicto armado' },
+};
+
 // -------- Totales nacionales (periodo actual) --------
 const totales = ALL_CATS.reduce((acc, c) => { acc[c] = departamentos.reduce((s, d) => s + d[c], 0); return acc; }, {});
 totales.total = departamentos.reduce((s, d) => s + d.total, 0);
@@ -281,7 +323,7 @@ const noticias = [
 
 const output = {
   meta: {
-    fuente: 'Policía Nacional de Colombia (SIEDCO) vía datos.gov.co + Fiscalía General de la Nación (SPOA) para delitos informáticos',
+    fuente: 'Policía Nacional de Colombia (SIEDCO) vía datos.gov.co + Fiscalía General de la Nación (SPOA) para delitos informáticos, procesos y víctimas + Instituto Nacional de Medicina Legal y Ciencias Forenses (SIRDEC) para personas desaparecidas',
     periodoActual: 'Enero 2025 - Mayo 2026 (mayo parcial)',
     rangoHistorico: { min: anioGlobalMin, max: anioGlobalMax },
     rangoAnios,
@@ -297,6 +339,8 @@ const output = {
   historicoDepartamental,
   topMunicipios: topMunis,
   delitosInformaticos,
+  denunciasFiscalia,
+  desaparecidosUBPD,
   municipiosDetalle,
   analitica,
   noticias,

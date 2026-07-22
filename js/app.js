@@ -773,6 +773,56 @@
     `;
   }
 
+  // ---------------- Sparkline genérico (reutilizado por SPOA y UBPD) ----------------
+  function sparkline(elId, serie, color) {
+    const w = 288, h = 60, pad = 4;
+    const vals = serie.map(s => s.total);
+    const max = Math.max(...vals), min = Math.min(...vals);
+    const span = Math.max(max - min, 1);
+    const stepX = (w - pad * 2) / Math.max(serie.length - 1, 1);
+    const pts = serie.map((s, i) => [pad + i * stepX, h - pad - ((s.total - min) / span) * (h - pad * 2)]);
+    const line = pts.map((p, i) => (i === 0 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1)).join(' ');
+    const area = line + ` L${pts[pts.length - 1][0]},${h} L${pts[0][0]},${h} Z`;
+    document.getElementById(elId).innerHTML = `
+      <svg viewBox="0 0 ${w} ${h}">
+        <path d="${area}" style="fill:${color}22"></path>
+        <path d="${line}" style="fill:none;stroke:${color};stroke-width:2"></path>
+      </svg>`;
+  }
+
+  // ---------------- Denuncias Fiscalía (SPOA) ----------------
+  function renderSpoa() {
+    const f = DATA.denunciasFiscalia;
+    if (!f) return;
+    sparkline('spoaChart', f.procesos.porAnio, '#ff9f40');
+    const totalProcesos = f.procesos.porAnio.reduce((s, r) => s + r.total, 0);
+    const totalVictimas = f.victimas.porAnio.reduce((s, r) => s + r.total, 0);
+    const topDepto = f.procesos.porDepartamento[0];
+    const tipos = f.procesos.porTipo.slice(0, 3);
+    document.getElementById('spoaTop').innerHTML = `
+      <div class="cyber-row"><span class="cyber-name">Procesos (noticias criminales) 2010–2026</span><span class="cyber-val -orange">${fmt(totalProcesos)}</span></div>
+      <div class="cyber-row"><span class="cyber-name">Víctimas asociadas 2010–2026</span><span class="cyber-val -orange">${fmt(totalVictimas)}</span></div>
+      <div class="cyber-row"><span class="cyber-name">Depto. líder: ${topDepto.departamento}</span><span class="cyber-val -orange">${fmt(topDepto.total)}</span></div>
+      ${tipos.map(t => `<div class="cyber-row"><span class="cyber-name" title="${t.delito}">${t.delito.slice(0, 34)}</span><span class="cyber-val -orange">${fmt(t.total)}</span></div>`).join('')}
+    `;
+  }
+
+  // ---------------- Personas desaparecidas ----------------
+  function renderUbpd() {
+    const u = DATA.desaparecidosUBPD;
+    if (!u) return;
+    sparkline('ubpdChart', u.porAnio, '#b073ff');
+    const topDepto = u.porDepartamento[0];
+    const hombres = (u.porSexo.find(s => /hombre/i.test(s.sexo)) || {}).total || 0;
+    const mujeres = (u.porSexo.find(s => /mujer/i.test(s.sexo)) || {}).total || 0;
+    document.getElementById('ubpdTop').innerHTML = `
+      <div class="cyber-row"><span class="cyber-name">Registrados sin localizar (SIRDEC)</span><span class="cyber-val -purple">${fmt(u.totalRegistroActual)}</span></div>
+      <div class="cyber-row"><span class="cyber-name">Depto. líder: ${topDepto.departamento}</span><span class="cyber-val -purple">${fmt(topDepto.total)}</span></div>
+      <div class="cyber-row"><span class="cyber-name">Hombres / Mujeres</span><span class="cyber-val -purple">${fmt(hombres)} / ${fmt(mujeres)}</span></div>
+      <div class="cyber-row"><span class="cyber-name">Universo UBPD (conflicto armado, ref.)</span><span class="cyber-val -purple">${fmt(u.cifraOficialUBPD.total)}</span></div>
+    `;
+  }
+
   // ---------------- Analítica demográfica ----------------
   const ANALITICA_OPTS = [
     { key: 'homicidios_modalidad', label: 'Homicidios · Modalidad' },
@@ -1020,6 +1070,8 @@
   renderMuniTabs();
   renderMuniList();
   renderCyber();
+  renderSpoa();
+  renderUbpd();
   renderAnaliticaSelect();
   renderAnaliticaList();
   renderNews();
