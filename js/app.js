@@ -307,10 +307,10 @@
       const li = document.createElement('li');
       li.className = 'cat-item' + (state.active.has(c.key) ? ' checked' : '');
       li.innerHTML = `
-        <div class="cat-checkbox"></div>
         <div class="cat-dot" style="background:${c.color}; color:${c.color}"></div>
         <div class="cat-name">${c.label}</div>
         <div class="cat-count">${fmt(total)}</div>
+        <div class="cat-toggle"></div>
       `;
       li.addEventListener('click', () => {
         if (state.active.has(c.key)) state.active.delete(c.key); else state.active.add(c.key);
@@ -325,10 +325,10 @@
       li.className = 'cat-item overlay' + (state.active.has(c.key) ? ' checked' : '');
       li.title = 'Subconjunto de Homicidios — no se suma al total para evitar doble conteo';
       li.innerHTML = `
-        <div class="cat-checkbox"></div>
         <div class="cat-dot" style="background:${c.color}; color:${c.color}"></div>
         <div class="cat-name">${c.label} <span class="overlay-tag">subconjunto</span></div>
         <div class="cat-count">${fmt(total)}</div>
+        <div class="cat-toggle"></div>
       `;
       li.addEventListener('click', () => {
         if (state.active.has(c.key)) state.active.delete(c.key); else state.active.add(c.key);
@@ -881,8 +881,16 @@
     return items;
   }
   const searchIndex = buildSearchIndex();
+  const searchClearBtn = document.getElementById('searchClear');
+  searchClearBtn.addEventListener('click', () => {
+    searchInput.value = '';
+    searchClearBtn.classList.add('hidden');
+    searchResults.classList.remove('show');
+    searchInput.focus();
+  });
   searchInput.addEventListener('input', () => {
     const q = searchInput.value.trim().toLowerCase();
+    searchClearBtn.classList.toggle('hidden', !q);
     if (!q) { searchResults.classList.remove('show'); return; }
     const matches = searchIndex.filter(it => it.name.toLowerCase().includes(q)).slice(0, 8);
     if (!matches.length) { searchResults.classList.remove('show'); return; }
@@ -897,6 +905,7 @@
         else { const base = findDeptoFor(it.depto); if (base) map.flyTo([base.lat, base.lon], 8.5, { duration: 1.1 }); }
         searchResults.classList.remove('show');
         searchInput.value = it.name;
+        searchClearBtn.classList.remove('hidden');
       });
     });
   });
